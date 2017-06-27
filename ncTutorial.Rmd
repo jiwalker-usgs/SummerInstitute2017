@@ -1,0 +1,56 @@
+---
+title: "Extract data from NetCDF"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+Given a bunch of NWM output, we can extract the bits we care about in the following chunks of code.
+
+First we are going to find some interesting comids.
+```{r}
+library(rgdal)
+
+#fgdb <- "/mnt/data/nwm/gis/gis_nwm_v11/nwm_v11.gdb"
+#layers <- ogrListLayers(fgdb)
+#reaches <- readOGR(dsn=fgdb,layer=layers[1])
+#embudo <- "       08279500"
+#comid <- reaches[reaches$gages == embudo,]$feature_id
+#print(comid)
+```
+
+Now that we have comid for interesting gage we can grab some data from NetCDF.
+
+```{r}
+# load required libraries
+library(ncdf4)
+library(dplyr)
+
+# loop over files in list
+folder <- "/mnt/data/nwm/2016/"
+files <- dir(folder)[1:240]
+comid <- 17864756
+nwm.flow <- rep(NA,length(files))
+
+# get some comids (probably should come from gis)
+nc <- nc_open(filename = paste0(folder, files[[1]]))
+vars <- nc$var
+start <- which(vars$streamflow$dim[[1]]$vals == comid, arr.ind = TRUE)
+nc_close(nc)
+
+for (i in seq_along(files)) {
+  nc <- nc_open(filename = paste0(folder, files[i]))
+  # extract bit we care about
+  nwm.flow[i] <- ncvar_get(nc, varid = "streamflow", start = c(start,1), count = c(1,1))
+  
+  nc_close(nc)
+}
+```
+
+And there we have it, all our bits are read.
+
+So now let's plot some of these timeseries to see if it makes sense.
+
+```{r}
+  plot(nwm.flow, type='l', main=comid, xlab='', ylab="flow (cms)")
+```
